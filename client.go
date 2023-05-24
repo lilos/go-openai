@@ -66,6 +66,11 @@ func (c *Client) sendRequest(req *http.Request, v any) error {
 		req.Header.Set("OpenAI-Organization", c.config.OrgID)
 	}
 
+	if len(c.config.JwtToken) > 0 {
+		req.Header.Set("Jwt-Token", c.config.JwtToken)
+
+	}
+
 	res, err := c.config.HTTPClient.Do(req)
 	if err != nil {
 		return err
@@ -155,6 +160,10 @@ func (c *Client) newStreamRequest(
 	}
 	if c.config.OrgID != "" {
 		req.Header.Set("OpenAI-Organization", c.config.OrgID)
+	}
+	if c.config.JwtToken != "" {
+		req.Header.Set("Jwt-Token", c.config.JwtToken)
+
 	}
 	return req, nil
 }

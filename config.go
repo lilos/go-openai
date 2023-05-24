@@ -27,6 +27,7 @@ const AzureAPIKeyHeader = "api-key"
 type ClientConfig struct {
 	authToken string
 
+	JwtToken             string
 	BaseURL              string
 	OrgID                string
 	APIType              APIType
