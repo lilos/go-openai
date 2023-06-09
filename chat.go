@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 )
 
 // Chat message role defined by the OpenAI API.
@@ -18,9 +19,15 @@ var (
 	ErrChatCompletionStreamNotSupported = errors.New("streaming is not supported with this method, please use CreateChatCompletionStream")              //nolint:lll
 )
 
+type Content string
+
+func (c Content) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.QuoteToASCII(string(c))), nil
+}
+
 type ChatCompletionMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string  `json:"role"`
+	Content Content `json:"content"`
 
 	// This property isn't in the official documentation, but it's in
 	// the documentation for the official library for python:
