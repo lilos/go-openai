@@ -25,15 +25,12 @@ type Content string
 func (c Content) MarshalJSON() ([]byte, error) {
 	//return []byte(strconv.QuoteToASCII(string(c))), nil
 	//https://github.com/golang/go/issues/39137
-	var result = []byte("\"")
-	for _, r := range []rune(c) {
-		if r < 0x80 {
-			result = append(result, byte(r))
-			continue
-		}
+	var result []byte
+	tmp := []byte(strconv.QuoteToASCII(string(c)))
+	for _, b := range tmp {
+		r := rune(b)
 		if r < 0x10000 {
-			v := "\\u" + strconv.FormatInt(int64(r), 16)
-			result = append(result, []byte(v)...)
+			result = append(result, b)
 			continue
 		}
 		r1, r2 := utf16.EncodeRune(r)
@@ -41,8 +38,6 @@ func (c Content) MarshalJSON() ([]byte, error) {
 		v2 := "\\u" + strconv.FormatInt(int64(r2), 16)
 		result = append(append(result, []byte(v1)...), []byte(v2)...)
 	}
-
-	result = append(result, []byte("\"")...)
 	return result, nil
 }
 
