@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"unicode/utf16"
 )
 
 // Chat message role defined by the OpenAI API.
@@ -22,7 +23,23 @@ var (
 type Content string
 
 func (c Content) MarshalJSON() ([]byte, error) {
-	return []byte(strconv.QuoteToASCII(string(c))), nil
+	//return []byte(strconv.QuoteToASCII(string(c))), nil
+	//https://github.com/golang/go/issues/39137
+	var result = []byte("\"")
+	for _, r := range []rune(c) {
+		if r < 0x10000 {
+			v := "\\u" + strconv.FormatInt(int64(r), 16)
+			result = append(result, []byte(v)...)
+			continue
+		}
+		r1, r2 := utf16.EncodeRune(r)
+		v1 := "\\u" + strconv.FormatInt(int64(r1), 16)
+		v2 := "\\u" + strconv.FormatInt(int64(r2), 16)
+		result = append(append(result, []byte(v1)...), []byte(v2)...)
+	}
+
+	result = append(result, []byte("\"")...)
+	return result, nil
 }
 
 type ChatCompletionMessage struct {
