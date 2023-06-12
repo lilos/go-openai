@@ -25,20 +25,16 @@ type Content string
 func (c Content) MarshalJSON() ([]byte, error) {
 	//return []byte(strconv.QuoteToASCII(string(c))), nil
 	//https://github.com/golang/go/issues/39137
-	var result []byte
-	tmp := []byte(strconv.QuoteToASCII(string(c)))
-	for _, b := range tmp {
-		r := rune(b)
+	var tmp []rune
+	for _, r := range []rune(c) {
 		if r < 0x10000 {
-			result = append(result, b)
-			continue
+			tmp = append(tmp, r)
+		} else {
+			a, b := utf16.EncodeRune(r)
+			tmp = append(append(tmp, a), b)
 		}
-		r1, r2 := utf16.EncodeRune(r)
-		v1 := "\\u" + strconv.FormatInt(int64(r1), 16)
-		v2 := "\\u" + strconv.FormatInt(int64(r2), 16)
-		result = append(append(result, []byte(v1)...), []byte(v2)...)
 	}
-	return result, nil
+	return []byte(strconv.QuoteToASCII(string(tmp))), nil
 }
 
 type ChatCompletionMessage struct {
