@@ -27,6 +27,10 @@ func (c Content) MarshalJSON() ([]byte, error) {
 	//https://github.com/golang/go/issues/39137
 	var result = []byte("\"")
 	for _, r := range []rune(c) {
+		if r < 0x80 {
+			result = append(result, byte(r))
+			continue
+		}
 		if r < 0x10000 {
 			v := "\\u" + strconv.FormatInt(int64(r), 16)
 			result = append(result, []byte(v)...)
