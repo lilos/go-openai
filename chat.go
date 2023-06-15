@@ -30,6 +30,7 @@ func (c Content) MarshalJSON() ([]byte, error) {
 	var tmpStr strings.Builder
 	tmpRune := []rune(c)
 	iStart := 0
+	tmpStr.WriteString(`"`)
 	for i, r := range tmpRune {
 		if r >= 0x10000 {
 			// 当前表情之前的
@@ -48,6 +49,7 @@ func (c Content) MarshalJSON() ([]byte, error) {
 		rt := strconv.QuoteToASCII(string(tmpRune[iStart:]))
 		tmpStr.WriteString(rt[1 : len(rt)-1])
 	}
+	tmpStr.WriteString(`"`)
 	return []byte(tmpStr.String()), nil
 }
 
