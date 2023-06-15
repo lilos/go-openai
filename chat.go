@@ -3,8 +3,10 @@ package openai
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"unicode/utf16"
 )
 
@@ -25,16 +27,28 @@ type Content string
 func (c Content) MarshalJSON() ([]byte, error) {
 	//return []byte(strconv.QuoteToASCII(string(c))), nil
 	//https://github.com/golang/go/issues/39137
-	var tmp []rune
-	for _, r := range []rune(c) {
-		if r < 0x10000 {
-			tmp = append(tmp, r)
-		} else {
+	var tmpStr strings.Builder
+	tmpRune := []rune(c)
+	iStart := 0
+	for i, r := range tmpRune {
+		if r >= 0x10000 {
+			// 当前表情之前的
+			if i > iStart {
+				rt := strconv.QuoteToASCII(string(tmpRune[iStart:i]))
+				tmpStr.WriteString(rt[1 : len(rt)-1])
+			}
+			// 当前表情
 			a, b := utf16.EncodeRune(r)
-			tmp = append(append(tmp, a), b)
+			tmpStr.WriteString(fmt.Sprintf(`\u%x\u%x`, a, b))
+			iStart = i + 1
 		}
 	}
-	return []byte(strconv.QuoteToASCII(string(tmp))), nil
+	// 最后表情之后
+	if iStart < len(tmpRune) {
+		rt := strconv.QuoteToASCII(string(tmpRune[iStart:]))
+		tmpStr.WriteString(rt[1 : len(rt)-1])
+	}
+	return []byte(tmpStr.String()), nil
 }
 
 type ChatCompletionMessage struct {
