@@ -15,7 +15,7 @@ import (
 type Client struct {
 	config ClientConfig
 
-	requestBuilder    requestBuilder
+	requestBuilder    utils.RequestBuilder
 	createFormBuilder func(io.Writer) utils.FormBuilder
 }
 
@@ -29,7 +29,7 @@ func NewClient(authToken string) *Client {
 func NewClientWithConfig(config ClientConfig) *Client {
 	return &Client{
 		config:         config,
-		requestBuilder: newRequestBuilder(),
+		requestBuilder: utils.NewRequestBuilder(),
 		createFormBuilder: func(body io.Writer) utils.FormBuilder {
 			return utils.NewFormBuilder(body)
 		},
@@ -47,13 +47,6 @@ func NewOrgClient(authToken, org string) *Client {
 
 func (c *Client) sendRequest(req *http.Request, v any) error {
 	req.Header.Set("Accept", "application/json; charset=utf-8")
-	// Azure API Key authentication
-	if c.config.APIType == APITypeAzure {
-		req.Header.Set(AzureAPIKeyHeader, c.config.authToken)
-	} else {
-		// OpenAI or Azure AD authentication
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.authToken))
-	}
 
 	// Check whether Content-Type is already set, Upload Files API requires
 	// Content-Type == multipart/form-data
@@ -62,9 +55,7 @@ func (c *Client) sendRequest(req *http.Request, v any) error {
 		req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	}
 
-	if len(c.config.OrgID) > 0 {
-		req.Header.Set("OpenAI-Organization", c.config.OrgID)
-	}
+	c.setCommonHeaders(req)
 
 	if len(c.config.JwtToken) > 0 {
 		req.Header.Set("Jwt-Token", c.config.JwtToken)
@@ -78,11 +69,32 @@ func (c *Client) sendRequest(req *http.Request, v any) error {
 
 	defer res.Body.Close()
 
-	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusBadRequest {
+	if isFailureStatusCode(res) {
 		return c.handleErrorResp(res)
 	}
 
 	return decodeResponse(res.Body, v)
+}
+
+func (c *Client) setCommonHeaders(req *http.Request) {
+	// https://learn.microsoft.com/en-us/azure/cognitive-services/openai/reference#authentication
+	// Azure API Key authentication
+	if c.config.APIType == APITypeAzure {
+		req.Header.Set(AzureAPIKeyHeader, c.config.authToken)
+	} else {
+		// OpenAI or Azure AD authentication
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.authToken))
+	}
+	if c.config.OrgID != "" {
+		req.Header.Set("OpenAI-Organization", c.config.OrgID)
+	}
+	if c.config.JwtToken != "" {
+		req.Header.Set("Jwt-Token", c.config.JwtToken)
+	}
+}
+
+func isFailureStatusCode(resp *http.Response) bool {
+	return resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest
 }
 
 func decodeResponse(body io.Reader, v any) error {
@@ -140,7 +152,7 @@ func (c *Client) newStreamRequest(
 	urlSuffix string,
 	body any,
 	model string) (*http.Request, error) {
-	req, err := c.requestBuilder.build(ctx, method, c.fullURL(urlSuffix, model), body)
+	req, err := c.requestBuilder.Build(ctx, method, c.fullURL(urlSuffix, model), body)
 	if err != nil {
 		return nil, err
 	}
@@ -150,21 +162,7 @@ func (c *Client) newStreamRequest(
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Connection", "keep-alive")
 
-	// https://learn.microsoft.com/en-us/azure/cognitive-services/openai/reference#authentication
-	// Azure API Key authentication
-	if c.config.APIType == APITypeAzure {
-		req.Header.Set(AzureAPIKeyHeader, c.config.authToken)
-	} else {
-		// OpenAI or Azure AD authentication
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.authToken))
-	}
-	if c.config.OrgID != "" {
-		req.Header.Set("OpenAI-Organization", c.config.OrgID)
-	}
-	if c.config.JwtToken != "" {
-		req.Header.Set("Jwt-Token", c.config.JwtToken)
-
-	}
+	c.setCommonHeaders(req)
 	return req, nil
 }
 
